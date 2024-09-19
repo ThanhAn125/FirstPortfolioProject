@@ -47,17 +47,6 @@ SELECT location,  date, population, total_cases, total_deaths, (total_deaths/pop
 
   -- Looking at continent
   SELECT 
-	location Location, 
-	population Population, 
-	max(total_cases) as TotalCases,
-	max(total_deaths) as TotalDeaths, 
-	(max(total_deaths)/max(total_cases))*100 as DeathsPerCase
-  FROM [Profol].[dbo].[Death]
-  where continent is null
-  group by location,population
-  order by DeathsPerCase desc 
-
-  SELECT 
 	location, 
 	population, 
 	max(total_cases) as Max_case, 
@@ -72,38 +61,44 @@ SELECT location,  date, population, total_cases, total_deaths, (total_deaths/pop
     -- Looking at Global
 select * from [Profol].[dbo].[Death] order by date
 
---with TTDeaths (location,population,TotalDeaths)
---as 
---(
---SELECT location, population, sum(total_deaths) over (partition by location order by location,date) as TotalDeaths
---from [Profol].[dbo].[Death])
+with TTDeaths (location,population,TotalDeaths)
+as 
+(
+SELECT location, population, sum(total_deaths) over (partition by location order by location,date) as TotalDeaths
+from [Profol].[dbo].[Death])
 
---select *, (TotalDeaths/population) * 100 as PercantDeathPerDate
---from TTDeaths
+select *, (TotalDeaths/population) * 100 as PercantDeathPerDate
+from TTDeaths
 
 
+-- Creat View 
 Create view Covid19Infor as
-  SELECT 
-	dea.location, 
+  with CVInforBytime (location,Date,Population,Total_Cases,Total_Deaths,People_Vaccinate,PP_VacFull)
+ as
+(
+SELECT 
+	dea.location,
+	dea.date, 
 	dea.population,
 	max(total_cases) as Total_Cases, 
 	max(total_deaths) as Total_Deaths,
-	max(people_vaccinated) as People_Vacinate,
-	max(people_fully_vaccinated) as PP_VacFull,
-	(max(total_deaths)/max(total_cases))*100 as DeathsPerCase,
-	(max(total_cases) /dea.population) *100 as CasesPerPopulation,
-	(max(total_deaths) /dea.population) *100 as DeathPerPopulation,
-	(max(people_vaccinated)/dea.population) * 100 as TotalPPVacPerPop,
-    (max(people_fully_vaccinated) /dea.population)*100 as FullVacPerPop,
-	(max(total_deaths)/max(people_vaccinated)) *100 as DeathPerPPVacinnated
-
+	max(people_vaccinated) as People_Vaccinate,
+	max(people_fully_vaccinated) as PP_VacFull
   FROM [Profol].[dbo].[Death] dea
   join [Profol].[dbo].[Vaccinate] vac
   on dea.location = vac.location and dea.date = vac.date
   where dea.continent is not null
-  group by dea.location,dea.population
-  --order by DeathsPerCase DESC
-  ;
+  group by dea.location, dea.date, dea.population
+  )
+  select 
+  *, 
+  Total_Deaths/Total_Cases as DeathsPerCase, 
+  Total_Cases/population as CasesPerPopulation,
+  Total_Deaths/population as DeathPerPopulation,
+  People_Vaccinate/population as TotalPPVacPerPop,
+  PP_VacFull/population as FullVacPerPop,
+  Total_Deaths/nullif(People_Vaccinate,0) as DeathPerPPVacinnated        
+  from CVInforBytime
  
 
 
